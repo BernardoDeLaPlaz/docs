@@ -69,7 +69,7 @@ keys", as instructed, and hits RETURN.
 
 She issues the dojo command +apps, and gets a list the urbit apps
 available for download from the urbit store.  The list is short, but
-he sees a two she wants to try: a spreadsheet, and a personal contacts
+she sees a two she wants to try: a spreadsheet, and a personal contacts
 manager.  She hits 3, then return, to select the spreadsheet, then 7,
 then return, to select them.  Two apps are downloaded into her urbit.
 She exits the 'apps' application with control-X and returns to dojo.
@@ -82,11 +82,11 @@ sheet, and adds data to it to track her mortgage.  She notes an option
 to import her contacts data into the sheet, but ignores it.  Once done
 she hits control-X to return to dojo.
 
-A month later he hears about some virus or data breach and reaches out
+A month later she hears about some virus or data breach and reaches out
 to Tlon to see if her data is safe.  She clicks the "help" icon on her
 device and reaches Tlon's technical support website
 (http://help.urbit.org).  A banner across the top of the page answers
-her questions, but she wants more handholding, so he fills out the
+her questions, but she wants more handholding, so she fills out the
 "contact us" form.  As she is not paying for concierge tier service,
 it is two days later when she gets a response from a Tlon customer
 support agent, assuring her that her data is safe.
@@ -159,7 +159,7 @@ Tlon-administered hardware is available in a variety of georgraphical regions.
 
 ## Capabilities Required
 
-### Capabilities Required: Admin Facing
+### Capabilities Required: Admin Facing Website
 
 We need a website with admin screens that:
 
@@ -177,7 +177,7 @@ We need a website with admin screens that:
 * list all admins (via the super-admin account)
 * create and delete admins (via the super-admin account)
 
-### Capabilities Required: Customer Facing
+### Capabilities Required: Customer Facing Website
 
 We need a website with customer-facing screens
 
@@ -294,7 +294,7 @@ When run, the app store lists all the Tlon-approved apps, with a status next to 
 
 A user can use the keyboard arrow keys to navigate his cursor (via ncurses ?) and select a button to install an app.
 
-When he's done he can exit +apps by hitting control-X.  (N.B. There is instracture work here to allow ncurses, and applications of any type).
+When he's done she can exit +apps by hitting control-X.  (N.B. There is instracture work here to allow ncurses, and applications of any type).
 
 The +apps app is important because:
 	* it demonstrates that Urbit is a platform, not just a grad student demo project that 170 IQ spergs can play with
@@ -330,6 +330,74 @@ inside alerts inside the urbit client.  This does NOT mean that the
 urbit client surfs web pages.  If a customer mouses over one of those
 urls and clicks it, the registered web browser on his platform (if
 any) is invoked.
+
+## Design
+
+### Design: Systems / IT
+
+The Provisioner is a command line tool written in Ruby.  Ruby on Rails
+may be used to provide an assortment of useful librarys and the 'gem'
+library management system.
+
+It can run on any desktop.
+
+It communicates with:
+   * AWS EC2, via the Ruby API (https://docs.aws.amazon.com/sdk-for-ruby/v3/api/index.html)
+   * AWS S3 (for storage of snapshots), via Ruby API  ( https://docs.aws.amazon.com/sdkforruby/api/Aws/S3/Client.html )
+   * a Postgres database running on AWS ("instance 0") (the master AWS instance that we use)
+   * XXX ???? foundationDB for the customer urbits ???
+   * an instance of urbit ( a galaxy ?) that runs on instance 0 ("the provisioner urbit")
+
+The Postgres database is configured initially via a Ruby on Rails
+'migration': a tool which lets us take a schema definition file and
+make it flesh.
+
+Tasks to build the Provisioner:
+  * spin up an the S3 "instance 0", where the one-touch-urbit database lives: 1 day
+  * create an empty ruby app and nail down the database schema: 2 days
+  * explore and integrate AWS S3 Ruby API with the app: 3 days
+  * write "create a new customer" (this does nothing but database manipulations), with unit tests: 1 day
+  * write "spin up a new instance" (database manipulations and also AWS S3 manipulations): 2 days
+  * write "spin down an instance" (database manipulations and also AWS S3 manipulations): 2 days
+  * get the "provisioner urbit" installed on "instance 0" : 2 days 
+  * read up on how to have a galaxy issue a sun: 2 days
+  * write a handicapped version of "create a new sun" (works on a fixed / specified instance).  This does both database manipulations and urbit galaxy manipulations.  10 days
+  * XXX there are unknown unknowns here re key / credential handling 
+  * write "tell sun to emit snapshot" feature (requires both Ruby and work to bin/urbit source code - I may ask for help on this) : 5-10 days
+  * write handicapped version of "copy snapshot to backup" feature: 2 days
+  * write "adjust storage" feature: XXX need to design this first. AWS EC2 instances have compute and storage caps, but we intend to put multiple urbit on each. How do we measure storage space?  We're going to use FoundationDB to store events...
+
+* Querier
+
+* Alerter
+
+* Biller
+
+
+### Design: Customer-Facing Website
+
+Not designed / not deliverable for v1.0. 
+
+### Design: Admin-Facing Website
+
+Not designed / not deliverable for v1.0. 
+
+### Design: Urbit client
+
+Not designed / not deliverable for v1.0. 
+
+### Design: Apps store and first two apps
+
+Not designed / not deliverable for v1.0. 
+
+## Schedule
+
+In the 2019 Q1 / Q2 push the following tasks will be tackled in the following order:
+
+1. Systems / IT: Provisioner
+1. Systems / IT: Querier
+1. Systems / IT: Alerter
+1. Systems / IT: Biller
 
 ## Open issues
 

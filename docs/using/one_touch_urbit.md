@@ -333,6 +333,8 @@ any) is invoked.
 
 ## Open issues
 
+XXX discuss lost laptop scenario
+
 XXX discuss creating a moon, QR codes, etc.  Impacts web app, planet,
 and moon installer.
 

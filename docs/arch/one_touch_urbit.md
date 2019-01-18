@@ -471,10 +471,11 @@ Everything above, except +sheets.
 
 ## See also
 
-* companion document "A Proposed Urbit Hosting Architecture and Ops Plan using AWS"
+* low-level companion document "A Tutorial to Spin Up Urbit in AWS (with FoundationDB)".
 
-  https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/using/aws_ops_architecture.md
+  https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/arch/aws_foundationdb.md
 
-* companion document "A Tutorial to Spin Up Urbit in AWS (with FoundationDB)".
+* medium-level companion document "A Proposed Urbit Hosting Architecture and Ops Plan using AWS"
 
-  https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/using/aws_foundationdb.md
+  https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/arch/aws_ops_architecture.md
+

@@ -215,9 +215,9 @@ We require multiple tools:
 * Alerter
 * Querier
 
-The Provisioner is described in "A Proposed Urbit Hosting Architecture and Ops Plan using AWS".
+The Provisioner is described in more detail in "A Proposed Urbit Hosting Architecture and Ops Plan using AWS".
 
-    https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/using/aws_ops_architecture.md
+    https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/arch/aws_ops_architecture.md
 
 	...an app written in either C++ or Ruby and attached to a Postgres
 	database, provides a web page that customers can use to subscribe
@@ -227,21 +227,12 @@ The Provisioner is driven by the customer-facing webapp and the admin-facing web
 
 The Provisioner has the following capabilities:
 
-	* p-1: create a new customer (update the database)
-	* p-2: create a new hosted instance of urbit (update the database, spin up
-	  AWS S3 resources)
-	* p-3: create a new urbit (issue keys for)
-	* p-4: adjust CPU level and storage level of an urbit (update the database,
-	  spin down an AWS S3 instance, spin up a new one)
-	* p-5: move a hosted instance from one datacenter to another (freeze,
-	  checkpoint, shut down, spin down AWS S3 instance, spin up new one in
-	  other data facility, copy checkpoint file... and also update
-	  database)
-	* p-6: shut down a hosted instance of urbit (spin down an AWS S3 instance,
-	  update the database)
-	* p-7: consistency check (verify that the hosted instances in the database
-	  match the S3 resources ; we don't want to leak CPUs that we pay
-	  for!)
+	* p-1: create a new customer
+	* p-2: create a new hosted instance of urbit
+	* p-3: shut down a hosted instance of urbit
+    * p-4: adjust CPU level and storage level of a hosted urbit
+	* p-5: move a hosted instance of an urbit from one datacenter to another
+	* p-6: consistency check
 
 The Biller is a headless app that has the following capabilities:
 
@@ -269,7 +260,7 @@ like:
 	* "Your credit card has expired. Click <here> to update it."
 	* "Your urbit is almost out of space. Click <here> to select a plan with more storage."
 
-Alerts recorded in a database, 
+Alerts are recorded in the Postgres database.
 
 The Alerter has the following capabilities:
 
@@ -278,14 +269,18 @@ The Alerter has the following capabilities:
 	* a-3: wait for information that an event has been dismissed by a customer,
 
 The Querier is a tool that lets admins inspect the system.  It is
-accessed via the admin-facing web app.  It can deliver statistics such
-as:
+accessed via the admin-facing web app, perhaps using the ActiveAdmin
+library, which provides much of the required infrastructure.  It can
+deliver statistics, via a web page, such as:
 
-	* the number of customers 
-	* the number of customers who are behind in their payments
-	* growth of customers over time
-	* billing for current cycle
-	* growth of billing over time
+	* q-1: the number of customers 
+	* q-2: the number of customers who are behind in their payments
+	* q-3: growth of customers over time
+	* q-4: list of invoices for current billing cycle
+	* q-5: growth of invoice total over time
+	* q-6: list of all data centers
+	* q-7: list of EC2 instances per data center
+	* q-8: list of urbit instances per EC2 instance
 
 ### Capabilities Required: Apps store and first two apps
 
@@ -376,33 +371,65 @@ make it flesh.
 
 Tasks to build the Provisioner
 
-The following list is indexed with 'c' codes, referencing the
-capabilities listed in the "Capabilities Required" section above. c0
-is baseline infrastructure.
+The following list is indexed with 'p' codes, referencing the
+capabilities listed in the "Capabilities Required" section above. 
 
-  * c0.0: spin up an the EC2 "instance 0", where the one-touch-urbit database lives: 1 day
-  * c0.1: create an empty ruby app and nail down the database schema: 2 days
-  * c0.2: explore and integrate AWS S3 Ruby API with the app: 3 days
-  * c0.3: get the "provisioner urbit" installed on "instance 0" : 2 days 
+* p-0: Baseline infrastructure
+  * p-0.0: manually spin up an the EC2 "instance 0", where the one-touch-urbit database lives: 1 day
+  * p-0.1: create an empty ruby app and nail down the database schema: 2 days
+  * p-0.2: get the "provisioner urbit" installed on instance 0 : 2 days
+  * p-0.3: get the foundationDB installed on instances A, B, C ; clusters files distributed ; test from command line: 2 days
 
-  * c1.0: write "create a new customer" function (this does nothing but database manipulations), with unit tests: 1 day
+* p-1: create a new customer
+  * p-1.0: write "create a new customer" function (this does nothing but database manipulations), with unit tests: 1 day
 
-  * c2.0: write "spin up a new EC2 instance" function (database manipulations and also AWS S3 manipulations): 2 days
+* p-2: create a new hosted instance of urbit
+  * p-2.0: explore and integrate AWS EC2 Ruby API with the app, creating v0.1: 3 days
+  * p-2.1: write "spin up a new EC2 instance" function (database manipulations and also AWS S3 manipulations): 2 days
+  * p-2.2: read up on how to have a galaxy issue a sun: 2 days
+  * p-2.3: "create a new hosted urbit" function - ticket issuance  (XXX unknown unknowns) - 1-5 days
+  * p-2.4: "create a new hosted urbit" function - ssh - 3 days
+  * p-2.5: "create a new hosted urbit" function - database manipulations: 1 day
+  
+* p-3: shut down a hosted instance of urbit
+  * p-3.0: explore and integrate AWS S3 Ruby API with the app: 2 days
+  * p-3.1: write "tell an urbit to emit snapshot" feature (requires both Ruby and work to bin/urbit source code - I may ask for help on this) : 5-10 days
+  * p-3.2: write and test "copy snapshot to backup" feature: 2 days
+  * p-3.3: "shut down a new hosted urbit" function - ssh: 1 days
+  * p-3.4: "shut down a new hosted urbit" function - database manipulations: 0.5 day
 
-  * c3.0: read up on how to have a galaxy issue a sun: 2 days
-  * c3.1: write a handicapped version of "create a new sun" function (works on a fixed / specified instance).  This does both database manipulations and urbit galaxy manipulations.  10 days
-  * c3.2: XXX there are unknown unknowns here re key / credential handling 
+* p-4: adjust CPU level and storage level of a hosted urbit
+  * p-4.0: create algorithm / write code for allocating urbits across instances (increasing an urbit's CPU may require that the urbit be moved from one instance in the pool to another).  Use 'nice' ? ': 2 days
+  * p-4.1: write and test "move snapshot from instance to instance" function - 1 day
+  * p-4.2: write "shut down an urbit" (database manipulations and command line work): 1 day
+  * p-4.3: write "shut down an EC2 instance" (database manipulations and also AWS S3 manipulations): 2 days
+  * p-4.4: integrate snapshot / cp snapshot / shutdown / startup steps & test complete process: 2 days
 
-  * c4.0: create algorithm / write code for allocating urbits across instances (increasing an urbit's CPU may require that the urbit be moved from one instance in the pool to another): 2 days
-  * c4.1: write "tell sun to emit snapshot" feature (requires both Ruby and work to bin/urbit source code - I may ask for help on this) : 5-10 days
-  * c4.2: write "move snapshot from instance to instance" function - 1 day
-  * c4.3: write "spin down an instance" (database manipulations and also AWS S3 manipulations): 2 days
-  * c4.4: write "spin start an urbit" function: 1 day
+* p-5: move a hosted instance of an urbit from one datacenter to another
+  * p-5.0: add database table to represent multiple regions 0.5 days
+  * p-5.1: add keys / credentials to access multiple regions 1 days
+  * p-5.2: create AWS EC2 IP rules / credentials to access multiple regions (ill defined): 0.5 days
+  * p-5.3: test / debug: 1 day
 
-  * write handicapped version of "copy snapshot to backup" feature: 2 days
-  * write "adjust storage" feature: XXX need to design this first. AWS EC2 instances have compute and storage caps, but we intend to put multiple urbit on each. How do we measure storage space?  We're going to use FoundationDB to store events...
+* p-6: consistency check
+  * p-6.0: write code to use API to find all running instances: 1 day
+  * p-6.1: write code to compare running instances to db: 0.5 day
+  * p-6.2: write code to shut down any unneeded running instances: 0.5 day
 
 * Querier
+
+* q-0: infrastructure:
+  	   * install activeadmin, create views for customers, invoices, datacenters, EC2 instances, S3 buckets: 1 day
+	   * create concept of admins, integreate authentication library: 1 day
+* q-1: the number of customers: 0.5 d
+* q-2: the number of customers who are behind in their payments: 0.5 d
+* q-3: growth of customers over time: 0.5 d
+* q-4: list of invoices for current billing cycle: 0.5 d
+* q-5: growth of invoice total over time: 0.5 d
+* q-6: list of all data centers: 0.5 d
+* q-7: list of EC2 instances per data center: 0.5 d
+* q-8: list of urbit instances per EC2 instance: 0.5 d
+  
 
 * Alerter
 

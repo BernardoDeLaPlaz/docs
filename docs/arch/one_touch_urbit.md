@@ -227,34 +227,34 @@ The Provisioner is driven by the customer-facing webapp and the admin-facing web
 
 The Provisioner has the following capabilities:
 
-* create a new customer (update the database)
-* create a new sun (issue keys for)
-* create a new hosted instance of urbit (update the database, spin up
-  AWS S3 resources)
-* adjust CPU level and storage level of an urbit (update the database,
-  spin down an AWS S3 instance, spin up a new one)
-* move a hosted instance from one datacenter to another (freeze,
-  checkpoint, shut down, spin down AWS S3 instance, spin up new one in
-  other data facility, copy checkpoint file... and also update
-  database)
-* shut down a hosted instance of urbit (spin down an AWS S3 instance,
-  update the database)
-* consistency check (verify that the hosted instances in the database
-  match the S3 resources ; we don't want to leak CPUs that we pay
-  for!)
+	* p-1: create a new customer (update the database)
+	* p-2: create a new hosted instance of urbit (update the database, spin up
+	  AWS S3 resources)
+	* p-3: create a new urbit (issue keys for)
+	* p-4: adjust CPU level and storage level of an urbit (update the database,
+	  spin down an AWS S3 instance, spin up a new one)
+	* p-5: move a hosted instance from one datacenter to another (freeze,
+	  checkpoint, shut down, spin down AWS S3 instance, spin up new one in
+	  other data facility, copy checkpoint file... and also update
+	  database)
+	* p-6: shut down a hosted instance of urbit (spin down an AWS S3 instance,
+	  update the database)
+	* p-7: consistency check (verify that the hosted instances in the database
+	  match the S3 resources ; we don't want to leak CPUs that we pay
+	  for!)
 
 The Biller is a headless app that has the following capabilities:
 
-* running once per day, identify any customers who are do to be billed
-* charge their credit cards
-* for customers with failing credit cards:
-  	  * send them an email
-	  * inject an in-urbit alert to their ship(s)
-* for customers who have failed credit card charges 10 days in a row:
-  	  * send them an email
-	  * force their urbit to create a checkpoint
-	  * store that checkpoint elsewhere
-	  * spin down their AWS S3 hosting
+	* b-1: running once per day, identify any customers who are do to be billed
+	* b-2: charge their credit cards
+	* b-3: for customers with failing credit cards:
+		  * send them an email
+		  * inject an in-urbit alert to their ship(s)
+	* b-4: for customers who have failed credit card charges 10 days in a row:
+		  * send them an email
+		  * force their urbit to create a checkpoint
+		  * store that checkpoint elsewhere
+		  * spin down their AWS S3 hosting
 
 The Alerter injects alert messages into a customer's urbit.  It is
 driven both autonomously and via the admin-facing web app.  Alerts are
@@ -262,11 +262,20 @@ messages displayed in the urbit client software, much like login
 messages in Unix.  They are simple text screens, which may contain
 URLs and buttons to dismiss them.  Alerts are might be used for things
 like:
+
 	* "This is your third login. We hope you're loving urbit. Click <here> to give us feedback or ask us questions."
 	* "The Google data breach does not affect you - thanks for using Urbit!"
 	* "Due to the west coast Earthquake, ops has relocated your urbit to US/East"
 	* "Your credit card has expired. Click <here> to update it."
 	* "Your urbit is almost out of space. Click <here> to select a plan with more storage."
+
+Alerts recorded in a database, 
+
+The Alerter has the following capabilities:
+
+	* a-1: accept and store a new alert for an individual or for  every individual in a geographic zone
+	* a-2: inject that event into an urbit, wait for confirmation that it is received and stored, and then note in its own database that the message was delivered
+	* a-3: wait for information that an event has been dismissed by a customer,
 
 The Querier is a tool that lets admins inspect the system.  It is
 accessed via the admin-facing web app.  It can deliver statistics such
@@ -335,35 +344,61 @@ any) is invoked.
 
 ### Design: Systems / IT
 
-The Provisioner is a command line tool written in Ruby.  Ruby on Rails
-may be used to provide an assortment of useful librarys and the 'gem'
-library management system.
+Definitions:
+    * AWS EC2           - Amazon cloud computing service
+    * AWS S3            - Amazon blob storage service
+	* instance 0		- an Amazon AWS EC2 instance reserved exclusively for Tlon admin tools
+	* instances A, B, C - three Amazon AWS EC2 instance reserved exclusively for a Tlon FoundationDB database
+	* pool instances	- a pool of AWS EC2 instances used to host urbits for customers
 
-It can run on any desktop.
+The Provisioner, narrowly construed, is a command line tool written in
+Ruby.  Ruby on Rails may be used to provide an assortment of useful
+libraries and the 'gem' library management system.
 
-It communicates with:
-   * AWS EC2, via the Ruby API (https://docs.aws.amazon.com/sdk-for-ruby/v3/api/index.html)
+The Provisioner, widely construed, is:
+  * the Provisioner command line tool, running on machine "instance 0" 
+  * a Postres database for exclusive use of the above, running on machine "instance 0"
+  * the Provisioner urbit instance, running on machine "instance 0"
+  * a FoundationDB database cluster,  running on instances A, B, and C
+
+The Provisioner command line tool communicates with:
+   * AWS EC2 (to spin up new EC2 instances), via the Ruby API (https://docs.aws.amazon.com/sdk-for-ruby/v3/api/index.html)
    * AWS S3 (for storage of snapshots), via Ruby API  ( https://docs.aws.amazon.com/sdkforruby/api/Aws/S3/Client.html )
-   * a Postgres database running on AWS ("instance 0") (the master AWS instance that we use)
-   * XXX ???? foundationDB for the customer urbits ???
+   * a Postgres database running on AWS ("instance 0") 
    * an instance of urbit ( a galaxy ?) that runs on instance 0 ("the provisioner urbit")
+
+The Provisioner command line tool does not communicate with:
+   * The FoundationDB cluster running on instances A, B, C
 
 The Postgres database is configured initially via a Ruby on Rails
 'migration': a tool which lets us take a schema definition file and
 make it flesh.
 
-Tasks to build the Provisioner:
-  * spin up an the S3 "instance 0", where the one-touch-urbit database lives: 1 day
-  * create an empty ruby app and nail down the database schema: 2 days
-  * explore and integrate AWS S3 Ruby API with the app: 3 days
-  * write "create a new customer" (this does nothing but database manipulations), with unit tests: 1 day
-  * write "spin up a new instance" (database manipulations and also AWS S3 manipulations): 2 days
-  * write "spin down an instance" (database manipulations and also AWS S3 manipulations): 2 days
-  * get the "provisioner urbit" installed on "instance 0" : 2 days 
-  * read up on how to have a galaxy issue a sun: 2 days
-  * write a handicapped version of "create a new sun" (works on a fixed / specified instance).  This does both database manipulations and urbit galaxy manipulations.  10 days
-  * XXX there are unknown unknowns here re key / credential handling 
-  * write "tell sun to emit snapshot" feature (requires both Ruby and work to bin/urbit source code - I may ask for help on this) : 5-10 days
+Tasks to build the Provisioner
+
+The following list is indexed with 'c' codes, referencing the
+capabilities listed in the "Capabilities Required" section above. c0
+is baseline infrastructure.
+
+  * c0.0: spin up an the EC2 "instance 0", where the one-touch-urbit database lives: 1 day
+  * c0.1: create an empty ruby app and nail down the database schema: 2 days
+  * c0.2: explore and integrate AWS S3 Ruby API with the app: 3 days
+  * c0.3: get the "provisioner urbit" installed on "instance 0" : 2 days 
+
+  * c1.0: write "create a new customer" function (this does nothing but database manipulations), with unit tests: 1 day
+
+  * c2.0: write "spin up a new EC2 instance" function (database manipulations and also AWS S3 manipulations): 2 days
+
+  * c3.0: read up on how to have a galaxy issue a sun: 2 days
+  * c3.1: write a handicapped version of "create a new sun" function (works on a fixed / specified instance).  This does both database manipulations and urbit galaxy manipulations.  10 days
+  * c3.2: XXX there are unknown unknowns here re key / credential handling 
+
+  * c4.0: create algorithm / write code for allocating urbits across instances (increasing an urbit's CPU may require that the urbit be moved from one instance in the pool to another): 2 days
+  * c4.1: write "tell sun to emit snapshot" feature (requires both Ruby and work to bin/urbit source code - I may ask for help on this) : 5-10 days
+  * c4.2: write "move snapshot from instance to instance" function - 1 day
+  * c4.3: write "spin down an instance" (database manipulations and also AWS S3 manipulations): 2 days
+  * c4.4: write "spin start an urbit" function: 1 day
+
   * write handicapped version of "copy snapshot to backup" feature: 2 days
   * write "adjust storage" feature: XXX need to design this first. AWS EC2 instances have compute and storage caps, but we intend to put multiple urbit on each. How do we measure storage space?  We're going to use FoundationDB to store events...
 

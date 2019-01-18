@@ -139,9 +139,16 @@ If that is successful, resume the above instructions after the `build` step.
 # Bash
 
 sudo apt-get update
-sudo apt-get install autoconf automake cmake exuberant-ctags g++ git libcurl4-gnutls-dev libgmp3-dev libncurses5-dev libsigsegv-dev libssl-dev libtool make openssl pkg-config python python3 python3-pip ragel re2c zlib1g-dev
+sudo apt-get install --yes autoconf automake cmake exuberant-ctags g++ git libcurl4-gnutls-dev libgmp3-dev libncurses5-dev libsigsegv-dev libssl-dev libtool make openssl pkg-config python python3 python3-pip ragel re2c zlib1g-dev liblmdb-dev sqlite3 libsqlite3-dev  libsnappy-dev libbz2-dev
+
 sudo -H pip3 install --upgrade pip
-sudo -H pip3 install meson==0.29
+sudo -H pip3 install meson==0.47
+
+wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-clients_6.0.15-1_amd64.deb
+wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-server_6.0.15-1_amd64.deb
+sudo dpkg --install foundationdb-clients*
+sudo dpkg --install  foundationdb-server*
+
 
 # we need ninja 1.5.1
 # 'apt-get install ninja-build' gives us 0.1.3

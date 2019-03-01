@@ -1,0 +1,482 @@
+Three parts to this document:
+
+1) line-by-line response
+2) breaking it down into distinct projects and tasks
+3) conclusion
+
+
+1: line-by-line response
+------------------------
+
+> TLDR: let's use Urbit itself for the control plane of hosting.
+>
+> Every execution instance will run a *control comet*, which
+> exchanges cards with Vere to initialize and control execution
+> processes (multiple serfs, one lord).
+
+This is proposing a LOT of new capabilities, just casually an in passing.
+
+Right now the architecture has 1 lord and 1 serf tied together, and
+the lord receives all keyboard input, all networking, etc., for ONE
+URBIT, and passes that to the one serf.
+
+It does not inspect the events nor route them.
+
+So, at minimum, in the king / pier, we need to
+
+
+1) either:
+
+    (a) turn the single linked list of writs into multiple linked lists, or
+    (b) augment the structure of the writ to have routing information (what urbit it is destined for)
+
+2) maintain a list of serfs  (god_u structure?)
+3) open multiple pipes to the serfs
+4) make _pier_work_create() take an argument, put a loop around it
+
+
+> Sponsorship and hosting are isomorphic.  If you are a hosted
+> planet, your sponsor is your host.  This is by far the simplest
+> and best architecture, and enforcing it is fine for a 1.0.
+
+I need a definition of "sponsorship" here...unless it's tautological /
+equivalent to "hosting".  But I don't think so.  I think it maybe
+means "who sold you your planet" ?
+
+If so, then I disagree that the two things are isomorphic, because one
+can buy a planet from X buy then either buy hosting from X, or
+self-host, or buy hosting from Tlon Inc.
+
+> The only communication that does not use Urbit networking should
+> be (a) communication with our event logging servers (FoundationDB);
+> (b) communication with our snapshot servers (protocol TBD,
+> discussed below); (c) communication with outside services, like
+> AWS/GCloud/Azure/Route 53/whatever.
+
+Was there some specific piece of communication in the original
+proposal that was proposed as "non urbit networking", and which is
+being challenged?  Or is this just a general rule of thumb?
+
+> Write as little code as possible.
+
+This is in direct contradiction to the idea of a major overhaul to
+make kings connect with many serfs.
+
+> Don't worry about billing.  Instead, make hosting as cheap as
+> possible.  Assume that most ships will be idle most of the time,
+> and many ships will be idle all the time.  
+
+OK.
+
+> This system should work so easily that many geeks with stars will
+> rapidly figure out how to host their own planets, if badly.
+
+"Rapidly figure out" is really really bad framing.  If we want people
+to self host, we should write a document that gives a bullet-proof /
+idiot-proof recipe to self-host.
+
+Also, that (documentaion) project is largely orthogonal to this
+project.
+
+> ### Instances
+> 
+> Execution instances are either fixed (local or dedicated
+> hardware) or dynamic (AWS etc).  On fixed instances, the control
+> comet is installed manually.  On dynamic instances, it is brought
+> up in the instance boot process.
+
+Why have two different paths?
+
+Also, we're talking about the "control comet", but we haven't
+discussed what it is, what responsibilities it has, who issues it, who
+interacts with it, etc.
+
+> A sponsor can also run clients *internally* -- in Aquarium mode.
+
+Please define "Aquarium mode".
+
+Please define what the alternatives to Aquarium mode are.
+
+> In turn, a sophisticated Vere can recognize Aquarium and run each
+> event loop in a separate thread, achieving the same performance
+> as our more complex multiprocessing logic -- but this is
+> nontrivial and shouldn't be a 1.0.
+
+"a sophisticated vere".
+
+This sounds like more work, and I'm not sure what he means.
+
+Ah, wait, I get it.
+
+He's talking about the king.  Right now we register libuv handlers on
+http, terminal, networking, etc., and those libuv callbacks, when
+triggered created writs, which are placed in the event queue, and then
+simultaneously dispatched to both computation (serf) and persistence
+(foundationDB).  So Curtis is saying "one king with one thread to
+manage it the event queue can be replaced by one king with n threads
+to manage n events queues".
+
+I think that this adds a lot of complexity, without adding much (any?)
+value.
+
+As an alternative idea, instead of 1 king + n serfs to serve n urbits,
+I propose n (king + serf) pairs.
+
+This being able to work depends on a few things, such as can we
+register things like uv_pipe_init() in two processes on the same
+machine if they're both trying to connect to port 8443 (to take one
+example from vere/http.c)
+
+> Local execution should be used for high-value ships.  Galaxies
+> and stars should run only on hardware under our physical control
+> -- in a locked on-premise cage -- at least until we've sorted out
+> some kind of HSM/enclave story.
+
+This seems far outside the scope of the One Touch Urbit proposal.  The
+OTU proposal is about a simple way - it's called ONE TOUCH after all!
+- for customer with stars to get up and running. Pax and Nick and
+other galaxy holders can / should either set up their own systems, or
+pay Tlon consulting rates to do something for them.  Zod itself should
+be hosted in a cage under the control of Tlon IT staff.
+
+> 
+> ### Idling
+> 
+> Idling is crucial.  No idling strategy -- no hosting strategy.
+> 
+> Idle ships should not be in RAM.  The primary cost of idle ships
+> should be the cost of the disk space needed to hold them.  Per
+> ship, this should be measured in pennies per year, come nowhere
+> near a dollar, and be effectively zero if you have started your
+> ship only once.
+> 
+> There are three general ways to get idle ships out of RAM:
+> 
+> One: suspend the process, capture its I/O, and wake on input.
+> For example, receive its packets and load it to handle them.
+> 
+> Two: configure plenty of swap and overprovision the RAM.
+> 
+> Three: run in Aquarium and make sure shared nouns are shared.
+
+Two sounds easiest by far.
+
+> ### Data security
+> 
+> Networking between sponsor and client is protected by Urbit
+> security.  Networking between execution instance and storage
+> server is not.
+> 
+> Let's use two very simple, solid layers of security to protect
+> our storage.  
+> 
+> First, let's encrypt all stored data with some symmetric key in
+> our derivation hierarchy -- maybe the hash of the management key.  
+> 
+> Second, let's put the whole cluster on one ZeroTier subnet.
+
+Yep.
+
+> ### Snapshot handling
+> 
+> Execution processes should not talk directly to outside storage
+> services like S3 or B2.  They should talk to an internal storage
+> server, which talks to S3 or B2.  Basically, we have one storage
+> server which runs both FoundationDB and some snapshot handling
+> daemon.
+
+This is another completely different proposal (snapshots are already
+something we're talking about) being dragged in.
+
+> Why this level of indirection?
+> 
+> One: we don't want to put storage service credentials even on the
+> same instance as an urbit, for now.
+
+Why not?
+
+> Two: we will find all kinds of uses for this level of indirection
+> (like incremental snaps).
+
+I think that this is Curtis Complexification Syndrome: building
+something now that we MIGHT find useful later.
+
+If he's right, and there's utility, why not build it later?
+
+> Three: not even clear that we want to depend on outside services
+> as a primary copy of our data, rather than a secondary.
+
+I find it odd that we might run hundreds or thousands of urbit
+instances in AWS EC2, but not trust AWS S3.
+
+Again, this is Complexification Syndrome: we're not sure THAT we want
+to do X, so we should build the infrastructure to do opposite-of-X.
+
+> It is still unclear whether snaps should be jammed nouns or (as
+> current) memory images.  Probably the former
+
+FWIW, I was told "use jammed nouns" in December, when Curtis asked me
+to write a snapshot proposal.
+    
+    https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/arch/new_snapshot_plan.md
+
+> I honestly think we may want to "front up" all the datas on our
+> own disks, at least for a little while, before going exclusively
+> offsite.
+
+Define "front up", please?
+
+> It's 2019 and a 10TB drive costs $400.  We should also
+> consider running 1/3 of the FoundationDB cluster locally, if the
+> latency it creates is not exorbitant (otherwise we can slave).
+
+Complexification Syndrome.
+
+> ## Direct sponsor help support
+> 
+> It should be possible to give your sponsor permission to log into
+> your urbit, so that we can do direct support by capturing the
+> command line (but not without opt-in permission).
+
+I don't think we want this at all.  This is One Touch Urbit.  Now
+we're talking about letting randos do tech support for instances?
+
+> ## Specific problems
+> 
+> I've provided only a skeleton -- this design is complete when the
+> following problems are solved:
+> 
+> ### Execution protocol (between control comet and Vere lord)
+> 
+> The execution protocol is the card exchange protocol between a
+> control comet running Arvo, and the Vere process that runs it.
+
+There's the assertion that there IS a protocol, but I'm not sure what
+activities the protocol controls.
+
+In contrast, here are the capabilities that I envision the Provisioner
+having:
+
+    * p-1: create a new customer
+    * p-2: create a new hosted instance of urbit
+    * p-3: shut down a hosted instance of urbit
+    * p-4: adjust CPU level and storage level of a hosted urbit
+    * p-5: move a hosted instance of an urbit from one datacenter to another
+    * p-6: consistency check
+
+> This "lord" process can create and manage "serf" children,
+> which are Unix processes that run individual Arvo ships.
+> The comet itself is a "serf" of the same process, of course.
+> But a comet should use only local disk storage.
+
+If the per-EC2 comet has abilities to DO anything, then presumably
+either
+
+(a) the control comet is going to need to be able to emit effects
+outside of the realm of pure Hoon calculations.
+
+or
+
+(b) the comet is merely going to serve as a connection proxy to the
+actual serfs , and THEY need to be able to do things
+outside of the realm of pure Hoon calculations.
+
+In either case, to create this capability we  need to
+   * write a new vane that to deal with the new protocol actions 
+   * write a new vere .c file that performs actual
+   real-world actions
+
+e.g. if we want the comet to be able to shut down a serf, then we need
+to write
+
+   arvo/sys/vane/comet_controller.hoon
+
+which handles events of a certain structure, and
+
+   vere/comet_controller.c
+
+which has some method
+
+  u3_cometcontroller_effect()
+
+which takes a noun and decomposes it and then can do real world things
+like
+
+* lock the pier / king event queue so that any additional incoming
+  events on http and console are rejected or ignored
+
+* wait for the event queue associated with one serf to empty out
+
+* shut down the serf process
+
+> The card exchange protocol fundamentally synchronizes a shared
+> state.  The shared state between Vere and Arvo is (a) a process
+> table (of Unix child processes), (b) a storage server
+> configuration, (c) tuning and optimization metrics.
+
+I don't fully understand this, but I think Curtis and I are speaking
+to the same topic, because he mentions "process table of unix
+processes", so obviously he's talking about something in Hoon land
+being able to see something in the real world (and control it).
+
+I'd love to understand the core proposal here; what we're seeing is
+"given that I want ___________ [ unspecified ] we'll obviously need a
+table to hold the data".
+
+> ### Control protocol
+> 
+> The control protocol lets the star/sponsor talk to control comets
+> (talking includes the bootstrap process, in which new comets
+> register with the star which owns them, so this is a true
+> peer-to-peer conversation).
+> 
+> ### Sponsor agent
+> 
+> The sponsor agent is responsible for hosting on the star side.
+> It manages instances and the client ships on them.
+> 
+> The default behavior of the sponsor is: if you are a client of
+> this sponsor, as registered on the blockchain, we'll host you.
+> Exceptions come later.
+
+OK.
+
+> For dynamic instances, the sponsor agent makes HTTP requests to
+> an outside computing provider to start, pause, and kill virtual
+> machines.
+
+I don't understand.
+
+Q1: is the "sponsor agent" the same as the controller comet?  Or is it
+a human being who owns sun S that we are now about to  host?
+
+Q2: id "outside computing provider" AWS EC2?  Is it what I've been
+calling the provisioner?  Is it something else?
+
+> Keys for AWS etc are in jael.  The VM should be
+> configured to boot up into its control comet.
+
+I don't understand.  "The" VM.  Which VM?  Is this synonymous with
+"the Nock virtual machine inside the controller comet"?  Or something else?
+
+> For static (local or dedicated) instances, we should have some
+> kind of extremely dumb instance control server that at least can
+> externally kill processes and reboot nodes.  There will always be
+> emergencies in which something needs to be killed.  There should
+> also be a layer of routing indirection that sysadmins can use to
+> disable network connectivity.
+>
+>
+> The sponsor should receive (a) optimization metrics, (b)
+> heartbeat pings, over the control protocol from the control
+> comets.
+> 
+> ### Infrastructure for local computing
+> 
+> A big cage, with lock and hopefully alarm; a videocamera pointed
+> at it, uninterruptible power; a rack or something that can use
+> it; RAID controller.  When we need more, we'll know more.
+
+Out of scope for this document.
+
+2: distinct projects and tasks
+------------------------------
+
+OK, here is what I take to be the tasks implied by this document, in
+bullet point form (as my understanding of the document is incomplete,
+this list is incomplete, but I'm capturing what I have now):
+
+
+multi-serf feature (allow one king to have an arbitrary number of serfs )
+   * alter command line processing to accept multiple serf names
+   * alter event queue structure to hold multiple event queues
+   * create structure to store reference to multiple threads
+   * in king, launch one thread per serf, and associate each with an
+      event queue
+   * launch multiple workers
+
+self hosting documentation project
+   * write a document telling star owners how to self-host at AWS EC2
+   * include a shell script to do 90% of the work
+
+persistence engine rework:
+
+    * create an persistence indirection server, which is a new stand-alone executable
+    * link in vere/rock.c, fond.c, frag.c, and sqlt.c
+    * create protocol (reuse writ/plea ?) to communicate between king and persistence server
+    * in king create two new pipes for communication with server
+         (similar to god_u->inn_u and god_u->out_u)
+    * rework pier.c u3_pier_apply() to replace persistence step (Call
+         to _pier_abstract_write() ) to be write into the pipe
+    * register callback handle in incoming pipe to update state
+          machine bits in writ to show successful persistence (this
+          will require moving bits out of each of the four persistence
+          engines, as right now each of them assumes that they are
+          linked into the same executable as the writ queue, and pass
+          around opaque pointers to writs so that they can update the
+          writs on database-write-completion
+
+snapshot project:
+
+    * Already discussed here.
+
+        https://github.com/BernardoDeLaPlaz/urbit_docs/blob/master/docs/arch/new_snapshot_plan.md
+
+        If we want to work on snapshots, let's criticize / interact with
+        this proposal.
+
+    * Re the indirection server, see the bullet points under
+        "persistence engine rework".
+
+comet controller project
+   * define the protocol that the comet speaks
+   * figure out who is talking to the control comet with this protocol
+   * write a new vane
+   * write a new vere c module that listens to commands of the new
+     vane. Capabilities include:
+        * shutting down a serf
+        * starting up a serf
+        * set storage server configuration
+        * get storage server configuration
+        * passively capture tuning and optimization metrics (???)
+        * report those when queried
+        * responding with the state of a serf (most recent event ?
+                     process id?)
+        * other?
+
+idling project
+   * multiple tricky approachs
+   * one VERY VERY simple approach: over-provision the EC2 instance
+       with RAM. Do that.
+
+
+data security project:
+   * add new layer to the persistence engine (similar to vere/frag.c)
+      that encrypts / decrypts data as it's being into/out of
+      persistence.
+   * either discover or create vane <--> C code way to get keys out of
+      jael and into the persistence layer
+
+3) conclusion
+-------------
+
+It's my belief that this proposal envisions a big beautiful wall, but
+is missing some bricks - it's not clear exactly what scenarios it
+works for, nor exactly what the complete list of moving parts and
+their various capabilities are.  For example, I don't know what the
+controller comet does, who talks to it, what commands flow over the
+protocol, who is on the other end of that protocol chain, what 
+
+We need to drill down on this.
+
+...and I think the best way to do that is to provide use cases first,
+which make it obvious, when reviewing the proposed architecture, if
+the architecture delivers or not.
+
+The way I'd approach triaging this list is:
+
+1) make up a list of use cases
+2) flesh out the ones we want to support first
+3) pick the minimum set of projects above that satisfy those uses cases
+
+
